@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card shadow">
+    <div class="card-header bg-primary text-white">
+        <h2><i class="bi bi-phone"></i> Selecione o Colaborador</h2>
+    </div>
+    <div class="card-body">
+        <div class="list-group">
+            {% for c in colaboradores %}
+            <div class="list-group-item list-group-item-action">
+                <div class="d-flex w-100 justify-content-between">
+                    <h5 class="mb-1">{{ c.nome }}</h5>
+                    <small>{{ c.patrimonio }}</small>
+                </div>
+                <p class="mb-1">{{ c.modelo }} • {{ c.imei }}</p>
+                <div class="btn-group mt-2">
+                    <a href="{{ url_for('formulario_termo', id=c.id) }}?tipo=entrega" class="btn btn-sm btn-success">
+                        <i class="bi bi-box-seam"></i> Gerar Entrega
+                    </a>
+                    <a href="{{ url_for('formulario_termo', id=c.id) }}?tipo=devolucao" class="btn btn-sm btn-warning">
+                        <i class="bi bi-box-arrow-left"></i> Gerar Devolução
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

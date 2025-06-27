@@ -20,25 +20,23 @@ class Colaborador(db.Model):
     imei = db.Column(db.String)
     numero = db.Column(db.String)
 
-# Rota principal - Seleção do colaborador
 @app.route('/')
 def index():
     colaboradores = Colaborador.query.order_by(Colaborador.nome).all()
     return render_template('index.html', colaboradores=colaboradores)
 
-# Rota do formulário completo
 @app.route('/termo/<int:id>', methods=['GET', 'POST'])
 def formulario_termo(id):
     colaborador = Colaborador.query.get_or_404(id)
     
     if request.method == 'POST':
         # Processar checklist
-        # No seu método que processa o formulário, altere:
         respostas = {}
         for i in range(1, 25):
-            respostas[f'sim{i}'] = '(X)' if request.form.get(f'sim{i}') else '( )'
-            respostas[f'nao{i}'] = '(X)' if request.form.get(f'nao{i}') else '( )'
-                
+            opcao = request.form.get(f'opcao{i}')
+            respostas[f'sim{i}'] = 'X' if opcao == 'sim' else ' '
+            respostas[f'nao{i}'] = 'X' if opcao == 'nao' else ' '
+        
         # Gerar documento
         tipo_termo = request.form.get('tipo_termo')
         modelo = "Entrega.docx" if tipo_termo == "entrega" else "Devolução.docx"
@@ -47,7 +45,7 @@ def formulario_termo(id):
         marcadores = {
             '{nome}': colaborador.nome,
             '{modelo}': colaborador.modelo,
-            '{marca}': extrair_marca(colaborador.modelo),  # Extrai marca do modelo
+            '{marca}': extrair_marca(colaborador.modelo),
             '{patrimonio}': colaborador.patrimonio,
             '{imei}': colaborador.imei,
             '{sim}': '(X)' if tem_linha_telefonica(colaborador.numero) else '( )',
@@ -57,9 +55,13 @@ def formulario_termo(id):
             '{info_adicionais}': request.form.get('info_adicionais', ''),
             '{data}': datetime.now().strftime('%d/%m/%Y')
         }
-        marcadores.update(respostas)
         
-        # Substitui no documento
+        # Adiciona as respostas do checklist
+        for i in range(1, 25):
+            marcadores[f'{{sim{i}}}'] = f'({respostas[f"sim{i}"]})'
+            marcadores[f'{{nao{i}}}'] = f'({respostas[f"nao{i}"]})'
+        
+        # Substituição no documento
         substituir_marcadores(doc, marcadores)
         
         nome_arquivo = f"Termo_{tipo_termo}_{colaborador.nome}.docx"
@@ -69,36 +71,31 @@ def formulario_termo(id):
     
     return render_template('formulario_termo.html', colaborador=colaborador)
 
-# Funções auxiliares
-def tem_linha_telefonica(numero):
-    return numero and numero.strip() not in ['', 'NÃO POSSUI', '-']
-
-def extrair_marca(modelo):
-    if 'galaxy' in modelo.lower(): return 'Samsung'
-    if 'moto' in modelo.lower(): return 'Motorola'
-    if 'iphone' in modelo.lower(): return 'Apple'
-    return 'Outra'
-
 def substituir_marcadores(doc, marcadores):
+    """Substitui todos os marcadores no documento, incluindo tabelas"""
     for p in doc.paragraphs:
         for key, value in marcadores.items():
-            if key in p.text:
-                # Corrige a formatação dos checkboxes
-                if key.startswith('sim') or key.startswith('nao'):
-                    p.text = p.text.replace(f'{{{key}}}', value)
-                else:
-                    p.text = p.text.replace(key, str(value))
+            p.text = p.text.replace(key, value)
     
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
                 for key, value in marcadores.items():
-                    if key in cell.text:
-                        # Corrige para checkboxes em tabelas
-                        if key.startswith('sim') or key.startswith('nao'):
-                            cell.text = cell.text.replace(f'{{{key}}}', value)
-                        else:
-                            cell.text = cell.text.replace(key, str(value))
+                    cell.text = cell.text.replace(key, value)
+
+def tem_linha_telefonica(numero):
+    """Verifica se o colaborador tem linha telefônica"""
+    return numero and numero.strip() not in ['', 'NÃO POSSUI', '-']
+
+def extrair_marca(modelo):
+    """Extrai a marca do modelo do celular"""
+    if not modelo:
+        return ''
+    modelo = modelo.lower()
+    if 'galaxy' in modelo: return 'Samsung'
+    if 'moto' in modelo: return 'Motorola'
+    if 'iphone' in modelo: return 'Apple'
+    return 'Outra'
 
 if __name__ == '__main__':
     app.run(debug=True)
